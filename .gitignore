@@ -1,0 +1,33 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+
+# Django
+*.log
+db.sqlite3
+staticfiles/
+media/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Node / Next.js (for when we add the frontend)
+node_modules/
+.next/
+out/
+build/
+
+# Editor / OS
+.vscode/
+.DS_Store
+*.swp
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
