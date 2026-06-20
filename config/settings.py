@@ -142,3 +142,6 @@ GITHUB_OAUTH_CALLBACK_URL = config(
 # Gemini (free-tier LLM for the triage agent)
 GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
 GEMINI_MODEL = config('GEMINI_MODEL', default='gemini-2.0-flash')
+
+# Encryption key for storing GitHub access tokens (Fernet)
+ENCRYPTION_KEY = config('ENCRYPTION_KEY')
