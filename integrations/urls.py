@@ -6,3 +6,7 @@ urlpatterns = [
     path('github/callback/', views.github_callback, name='github-callback'),
     path('me/', views.me, name='me'),
 ]
+
+webhook_urlpatterns = [
+    path('github/', views.github_webhook, name='github-webhook'),
+]

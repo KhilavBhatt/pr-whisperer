@@ -128,3 +128,58 @@ def me(request):
         'github_id': developer.github_id,
         'created_at': developer.created_at,
     })
+
+
+import json
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.utils.decorators import method_decorator
+
+from integrations.security import verify_github_signature
+from integrations.tasks import process_webhook_event
+from integrations.models import WebhookEvent
+from core.models import Repository
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def github_webhook(request):
+    """
+    Receives GitHub webhook events. Verifies the signature, logs the
+    raw payload immediately, queues async processing, and returns fast
+    — GitHub expects a quick response and may retry on timeout.
+    """
+    signature = request.headers.get('X-Hub-Signature-256', '')
+    if not verify_github_signature(request.body, signature):
+        return JsonResponse({'error': 'Invalid signature'}, status=401)
+
+    payload = json.loads(request.body)
+    event_type = request.headers.get('X-GitHub-Event', 'unknown')
+    delivery_id = request.headers.get('X-GitHub-Delivery', '')
+
+    repo_full_name = payload.get('repository', {}).get('full_name')
+    repo_github_id = str(payload.get('repository', {}).get('id', ''))
+
+    repository, _ = Repository.objects.get_or_create(
+        github_repo_id=repo_github_id,
+        defaults={
+            'full_name': repo_full_name,
+            'owner': None,  # Claimed later when a Developer authenticates and connects this repo
+            'webhook_active': True,
+        },
+    )
+
+    event, created = WebhookEvent.objects.get_or_create(
+        delivery_id=delivery_id,
+        defaults={
+            'repository': repository,
+            'event_type': event_type,
+            'raw_payload': payload,
+        },
+    )
+
+    if created:
+        process_webhook_event.delay(event.id)
+
+    return JsonResponse({'status': 'received', 'event_id': event.id})

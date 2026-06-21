@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -7,7 +8,12 @@ class Developer(models.Model):
     Extends Django's built-in User with GitHub-specific identity data.
     Kept separate from User so auth mechanics (login, sessions, password)
     stay decoupled from GitHub-specific concerns.
+
+    Uses a UUID primary key since this ID may be exposed in API responses
+    or URLs — a sequential integer would let anyone guess how many
+    developers exist or enumerate other users' profiles.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='developer_profile')
     github_username = models.CharField(max_length=100, unique=True)
     github_id = models.CharField(max_length=50, unique=True)
@@ -21,8 +27,19 @@ class Developer(models.Model):
 
 
 class Repository(models.Model):
-    """A GitHub repo connected by a Developer for triage."""
-    owner = models.ForeignKey(Developer, on_delete=models.CASCADE, related_name='repositories')
+    """
+    A GitHub repo connected by a Developer for triage.
+
+    Uses a UUID primary key for the same reason as Developer — repository
+    IDs will appear in dashboard URLs and API responses, and a sequential
+    integer would leak how many repos are connected in total.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(
+        Developer, on_delete=models.CASCADE, related_name='repositories',
+        null=True, blank=True,
+        help_text='Null until a Developer authenticates and claims this repo. May be discovered via webhook first.'
+    )
     full_name = models.CharField(max_length=255, help_text="e.g. 'khilav/grocerybot'")
     github_repo_id = models.CharField(max_length=50, unique=True)
     webhook_active = models.BooleanField(default=False)
@@ -36,7 +53,12 @@ class Repository(models.Model):
 
 
 class PullRequest(models.Model):
-    """A single PR tracked from a connected repository."""
+    """
+    A single PR tracked from a connected repository. Kept on an integer
+    primary key — PRs are always accessed through their parent Repository
+    (e.g. /repositories/<uuid>/pulls/<int>/), so the ID itself is never
+    exposed in a way that would leak information on its own.
+    """
 
     class Status(models.TextChoices):
         OPEN = 'open', 'Open'
